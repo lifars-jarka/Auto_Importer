@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 # Requires sentinel-mgmt-sdk-0.9.8
 # Sentinel One Auto-Importer to TheHive SIRP via Python 2.x
+
 import json
 import logging
 import datetime
@@ -26,9 +27,9 @@ DAYS = 7
 def main():
     api = TheHiveApi(HiveWEB, HiveAPI)
     S1Management = Management(hostname=S1WEB, api_token=S1API)
-    filter = ThreatQueryFilter()
     tod = datetime.datetime.now()
     d = datetime.timedelta(days=DAYS)
+    filter = ThreatQueryFilter()
     filter.apply("createdAt", tod - d, op="gt")
     filter.apply("resolved", False, op="eq")
     threats = S1Management.threats.get(query_filter=filter)
@@ -38,7 +39,7 @@ def main():
         string = searchCaseByDescription(api, threat["id"])
         if string is None:
             threat_values = createKeys(threat)
-            parsed = createAlertDescription(threat_values)
+            description = createCaseDescription(threat_values)
             case = Case(
                 title=threat["description"],
                 tlp=0,
@@ -50,7 +51,8 @@ def main():
                     threat["classification"],
                     threat["agentOsType"],
                 ],
-                description=parsed,
+                description=description,
+                tasks=[],
                 status="Open",
                 createdAt=threat["createdDate"],
             )
@@ -156,14 +158,14 @@ def createKeys(threat):
     return parsed
 
 
-def createAlertDescription(threat_values):
+def createCaseDescription(threat_values):
     url = f"https://{S1WEB}/analyze/threats/{threat_values['ThreatID']}/overview"
     description = "## Summary\n\n"
     for key, value in threat_values.items():
         if value is None:
-            pass
+            continue
         elif value is False:
-            pass
+            continue
         else:
             description += "- **" + str(key) + "**  " + (str(value)) + " \n"
     description += "```\n\n" + "Sentinel One Alert Url: " + url
